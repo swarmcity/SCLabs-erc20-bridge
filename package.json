@@ -1,0 +1,21 @@
+{
+  "name": "erc20-bridge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "eip777": "git+https://github.com/jacquesd/eip777.git",
+    "ganache-cli": "^6.0.3",
+    "truffle": "^4.0.4",
+    "truffle-flattener": "^1.2.0",
+    "zeppelin-solidity": "^1.5.0"
+  }
+}
