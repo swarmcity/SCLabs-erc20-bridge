@@ -14,8 +14,7 @@ contract ForeignERC777Bridge is Ownable {
 	function registerToken(address _homeAddress,string _name, string _symbol) public onlyOwner {
 		assert(tokenMap[_homeAddress] == 0);
 		// create the new token
-		//address t = new ReferenceToken(_name,_symbol,1);
-		address t = new ReferenceToken('Reference Token','XRT',100000000000000);
+		address t = new ReferenceToken(_name,_symbol,1);
 		tokenMap[_homeAddress] = t;
 	}
 
