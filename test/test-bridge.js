@@ -15,12 +15,24 @@ contract('SampleERC20/ERC777', (accounts) => {
 	// the HomeERC20Bridge contract
 	let homeERC20Bridge;
 
-	// the sender & initial balance of the home token to the foreign chain
-	let homeSender = accounts[3];
-	let homeSenderAmount = 2;
+	// Alice : the sender
+	let alice = accounts[3];
+	let aliceAmount = 2;
 
 	// the ForeignERC777Bridge contract
 	let foreignERC777Bridge;
+
+	// validator set
+	let validators = [{
+		public: '0x60acd78cc9c5ee9a810727b26562e812a47902d4',
+		private: '2eacbf3d90209174100a7d186f6baedd9cb7e5d5622d1f827d440090e29ba8d3'
+	}, {
+		public: '0x988714bb6867976e032a6d4a503b92a415347d1d',
+		private: '5fdb5d0e48036c154723fb34b3e82100afb8c1392bb29a9d76f099e32bd47a31'
+	}, {
+		public: '0x8567df7c820411d24eaae6f27a75d6c15ef54ca5',
+		private: '86b5f0a9fc11bc2f41b103178d60ce710a46c8e2b6d0a7ea183c4d5d066ec605'
+	}];
 
 	describe('HomeChain setup', () => {
 
@@ -34,8 +46,8 @@ contract('SampleERC20/ERC777', (accounts) => {
 			});
 		});
 
-		it("mints SampleERC20coin to homeSender", (done) => {
-			homeToken.mint(homeSender, homeSenderAmount, {
+		it("mints SampleERC20coin to alice", (done) => {
+			homeToken.mint(alice, aliceAmount, {
 				from: homeTokenOwner
 			}).then(function() {
 				done();
@@ -52,30 +64,36 @@ contract('SampleERC20/ERC777', (accounts) => {
 			});
 		});
 
-	});
-
-	describe('Deposit test', () => {
-		it("sends tokens to the HomeERC20Bridge", (done) => {
-			homeToken.transfer(homeERC20Bridge.address, 1, {
-				from: homeSender
-			}).then(function() {
-				done();
-			});
+		it("registers validators on HomeERC20Bridge", async () => {
+			for (let i = 0; i < validators.length; i++) {
+				await homeERC20Bridge.addValidator(validators[i].public, {
+					from: bridgeOwner
+				});
+			}
 		});
 	});
 
-	describe('Withdraw test', () => {
-		it("should withdraw tokens from HomeERC20Bridge back to tokenOwner", (done) => {
-			homeERC20Bridge.withdraw(homeToken.address, homeTokenOwner, 1, {
-				from: homeSender
-			}).then(function() {
-				done();
-			});
-		});
-	});
+	// describe('Deposit test', () => {
+	// 	it("sends tokens to the HomeERC20Bridge", (done) => {
+	// 		homeToken.transfer(homeERC20Bridge.address, 1, {
+	// 			from: alice
+	// 		}).then(function() {
+	// 			done();
+	// 		});
+	// 	});
+	// });
+
+	// describe('Withdraw test', () => {
+	// 	it("should withdraw tokens from HomeERC20Bridge back to tokenOwner", (done) => {
+	// 		homeERC20Bridge.withdraw(homeToken.address, homeTokenOwner, 1, {
+	// 			from: alice
+	// 		}).then(function() {
+	// 			done();
+	// 		});
+	// 	});
+	// });
+
 	describe('ForeignChain setup', () => {
-
-
 
 		it("deploys the EIP820 registry", async () => {
 			await web3.eth.sendTransaction({
@@ -106,5 +124,22 @@ contract('SampleERC20/ERC777', (accounts) => {
 			});
 		});
 
-	})
+	});
+
+	describe('main -> foreign', () => {
+		it("sends 2 token units to the HomeBridge", async () => {
+			// Alice sends 
+			await homeToken.transfer(homeERC20Bridge.address, 2, {
+				from: alice
+			});
+
+			// now the validators catch the Transfer event , and mint the token on the
+			// foreign network
+			// 
+
+
+		});
+	});
+
+
 });
