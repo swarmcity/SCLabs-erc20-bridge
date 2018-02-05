@@ -6,10 +6,39 @@ import './Validatable.sol';
 
 contract HomeERC20Bridge is Validatable {
 
-	function withdraw(address _token, address _recepient,uint _amount,bytes32 _withdrawhash, uint8[] _validators,uint8[] v, bytes32[] r, bytes32[] s) public{
-		// iterate over validators
-		// check if signature 
+	mapping(bytes32=>bool) usedHashes;
+
+	function HomeERC20Bridge(uint8 _requiredValidators,address[] _initialValidators) public {
+		setRequiredValidators(_requiredValidators);
+        for (uint i = 0; i < _initialValidators.length; i++) {
+        	addValidator(_initialValidators[i]);
+        }
+	}
+
+	function withdraw(address _token, address _recepient,uint _amount,uint _withdrawblock,uint8[] _v, bytes32[] _r, bytes32[] _s) public{
+
+		bytes32 hash = sha256(_token,_recepient,_amount,_withdrawblock);
+
+		// the hash should not have been used before
+		assert(usedHashes[hash] == false);
+
+		// the time-lock should have passed
+        assert(_withdrawblock >= block.number);		
+
+		// verify the provided signatures
+		uint8 approvals = 0;
+        for (uint i = 0; i < _v.length; i++) {
+        	assert(validators[ecrecover(hash, _v[i], _r[i], _s[i])] == true);
+        	approvals++;
+        }
+
+		// verify if the threshold of valid signatures is met
+        assert(approvals >= requiredValidators);
+
+		// all OK. mark hash as used & Transfer tokens
+		usedHashes[hash] = true;
 		assert(ERC20Basic(_token).transfer(_recepient,_amount));
+		
 	}
 
 }

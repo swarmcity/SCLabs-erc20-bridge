@@ -7,6 +7,7 @@ contract Validatable is Ownable {
 	// Event created on validator gets added
 	event ValidatorAdded (address validator);
 	event ValidatorRemoved (address validator);
+	uint8 requiredValidators = 0;
 
 	mapping (address=>bool) validators;
 
@@ -19,6 +20,10 @@ contract Validatable is Ownable {
 	function removeValidator(address _validator) public onlyOwner {
 		validators[_validator] = false;
 		ValidatorRemoved(_validator);
+	}
+
+	function setRequiredValidators(uint8 _requiredValidators) public onlyOwner {
+		requiredValidators = _requiredValidators;
 	}
 
 	modifier onlyValidator(address _validator) {
