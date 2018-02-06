@@ -7,12 +7,16 @@ import './Validatable.sol';
 contract HomeERC20Bridge is Validatable {
 
 	mapping(bytes32=>bool) usedHashes;
+	
+	event BridgeETH(address from, uint256 value);
 
-	function HomeERC20Bridge(uint8 _requiredValidators,address[] _initialValidators) public {
-		setRequiredValidators(_requiredValidators);
-        for (uint i = 0; i < _initialValidators.length; i++) {
-        	addValidator(_initialValidators[i]);
-        }
+	function HomeERC20Bridge(uint8 _requiredValidators,address[] _initialValidators) Validatable(_requiredValidators,_initialValidators) public {
+
+	}
+
+	// ETH deposit
+	function() payable {
+		BridgeETH(msg.sender,msg.value);
 	}
 
 	function withdraw(address _token, address _recepient,uint _amount,uint _withdrawblock,uint8[] _v, bytes32[] _r, bytes32[] _s) public{
@@ -39,7 +43,7 @@ contract HomeERC20Bridge is Validatable {
 		usedHashes[hash] = true;
 		assert(ERC20Basic(_token).transfer(_recepient,_amount));
 		
-	}
+	}	
 
 }
 

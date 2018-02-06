@@ -9,7 +9,14 @@ contract Validatable is Ownable {
 	event ValidatorRemoved (address validator);
 	uint8 requiredValidators = 0;
 
-	mapping (address=>bool) validators;
+	mapping (address=>bool) public validators;
+
+	function Validatable(uint8 _requiredValidators,address[] _initialValidators) public {
+		setRequiredValidators(_requiredValidators);
+        for (uint i = 0; i < _initialValidators.length; i++) {
+        	addValidator(_initialValidators[i]);
+        }
+	}
 
 	function addValidator(address _validator)  public onlyOwner {
 		assert(validators[_validator] != true);
@@ -24,6 +31,10 @@ contract Validatable is Ownable {
 
 	function setRequiredValidators(uint8 _requiredValidators) public onlyOwner {
 		requiredValidators = _requiredValidators;
+	}
+
+	function isValidator(address _validator) public view returns(bool) {
+		return (validators[_validator] == true);
 	}
 
 	modifier onlyValidator(address _validator) {
