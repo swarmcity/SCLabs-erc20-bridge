@@ -4,10 +4,7 @@ import 'eip777/contracts/ITokenRecipient.sol';
 import 'eip777/contracts/ReferenceToken.sol';
 import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
 import './Validatable.sol';
-
-interface IBridgable {
-	function mintFromBridge(address _to,uint256 _amount) public;
-}
+import './Bridgable.sol';
 
 contract ForeignERC777Bridge is Ownable, Validatable {
 
@@ -22,6 +19,8 @@ contract ForeignERC777Bridge is Ownable, Validatable {
 
 	event WithdrawRequest(address _to,uint256 _amount,bytes32 _withdrawhash);
 	event TokenAdded(address _homeAddress,address _sideAddress);
+	event MintRequestSigned(bytes32 _mintRequestsHash, bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount,uint8 _requiredSignatures,uint8 _signatureCount);
+	event MintRequestExecuted(bytes32 _mintRequestsHash, bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount);
 
 	function ForeignERC777Bridge(uint8 _requiredValidators,address[] _initialValidators) Validatable(_requiredValidators,_initialValidators) public {
 		// deploy a sidechain ETH token as an ERC-777.
@@ -36,35 +35,20 @@ contract ForeignERC777Bridge is Ownable, Validatable {
 		TokenAdded(_homeAddress,_sideAddress);
 	}
 
-	function signMintRequest(bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount,uint8 _v, bytes32 _r, bytes32 _s) public onlyOwner{
+	function signMintRequest(bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount,uint8 _v, bytes32 _r, bytes32 _s) public {
 		bytes32 mintRequestsHash = sha256(_transactionHash,_mainToken,_recipient,_amount);
-		assert(isValidator(ecrecover(mintRequestsHash, _v, _r, _s)));
+		//assert(isValidator(ecrecover(mintRequestsHash, _v, _r, _s)));
 		if (mintRequests[mintRequestsHash] < requiredValidators){
 			mintRequests[mintRequestsHash]++;
+			MintRequestSigned(mintRequestsHash,_transactionHash, _mainToken,  _recipient, _amount,requiredValidators,mintRequests[mintRequestsHash]);
 		}else{
-			IBridgable(tokenMap[_mainToken]).mintFromBridge(_recipient,_amount);
+			assert(mintRequestsDone[mintRequestsHash] != true);
+			assert(tokenMap[_mainToken] != 0x0);
 			mintRequestsDone[mintRequestsHash] = true;
+			MintRequestExecuted(mintRequestsHash,_transactionHash, _mainToken,  _recipient, _amount);
+			//Bridgable(tokenMap[_mainToken]).mintFromBridge(_recipient,_amount,'');
 		}
 	}
-
-	// function mintTokens(address _token, address _recipient,uint256 _amount) public onlyOwner {
-	// 	assert(tokenMap[_token] != 0);
-	// 	ReferenceToken(tokenMap[_token]).mint(_recipient,_amount,"");
-	// }
-
-	// the ERC777 token will call this function when a token is sent to the bridge.
-	// function tokensReceived(
-	//     address from,
-	//     address to,
-	//     uint amount,
-	//     bytes userData,
-	//     address operator,
-	//     bytes operatorData
-	// ) public{
-	// 	bytes32 hash = sha256(from,amount,userData);
-	// 	// notify validators of this request.
-	// 	WithdrawRequest(from,amount,hash);
-	// }
 
 
 	// function withDrawRequest(address _token,address _recipient,uint256 _amount) public onlyOwner {

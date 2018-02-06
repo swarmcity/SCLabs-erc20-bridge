@@ -3,9 +3,15 @@ const HomeERC20Bridge = artifacts.require("./HomeERC20Bridge");
 const ForeignERC777Bridge = artifacts.require("./ForeignERC777Bridge.sol");
 const EIP820 = require('eip820');
 const erc777 = artifacts.require("eip777/contracts/ReferenceToken.sol");
+const keythereum = require('keythereum');
+const ethUtil = require('ethereumjs-util');
+const utility = require('../utility.js')();
+const sha256 = require('js-sha256').sha256;
+
 
 contract('SampleERC20/ERC777', (accounts) => {
 
+	// HOMECHAIN
 	// the ERC20 token on the home chain
 	let homeToken;
 	let homeTokenOwner = accounts[1];
@@ -14,27 +20,50 @@ contract('SampleERC20/ERC777', (accounts) => {
 
 	// the HomeERC20Bridge contract
 	let homeERC20Bridge;
+	const requiredValidators = 3;
 
 	// Alice : the sender
 	let alice = accounts[3];
 	let aliceAmount = 2;
 
+	// SIDECHAIN
 	// the ForeignERC777Bridge contract
 	let foreignERC777Bridge;
 
+	let sidechainToken;
+
 	// validator set
-	let validators = [{
-		public: '0x60acd78cc9c5ee9a810727b26562e812a47902d4',
-		private: '2eacbf3d90209174100a7d186f6baedd9cb7e5d5622d1f827d440090e29ba8d3'
-	}, {
-		public: '0x988714bb6867976e032a6d4a503b92a415347d1d',
-		private: '5fdb5d0e48036c154723fb34b3e82100afb8c1392bb29a9d76f099e32bd47a31'
-	}, {
-		public: '0x8567df7c820411d24eaae6f27a75d6c15ef54ca5',
-		private: '86b5f0a9fc11bc2f41b103178d60ce710a46c8e2b6d0a7ea183c4d5d066ec605'
-	}];
+	let validators = [];
+
+	gasStats = [];
+
+	function mkkeypair() {
+		var dk = keythereum.create();
+		var keyObject = keythereum.dump("none", dk.privateKey, dk.salt, dk.iv);
+		return ({
+			private: dk.privateKey.toString('hex'),
+			public: ethUtil.addHexPrefix(keyObject.address)
+		});
+	}
+
+	function collectGasStats(transactionHash, description, cb) {
+		web3.eth.getTransactionReceipt(transactionHash, function(e, tx) {
+			gasStats.push({
+				name: description,
+				gasUsed: tx.gasUsed
+			})
+			if (cb) cb();
+		});
+	}
 
 	describe('HomeChain setup', () => {
+
+		it('generate 10 validator keys', () => {
+			for (let i = 0; i < 10; i++) {
+				validators.push(mkkeypair());
+			}
+		});
+
 
 		it("deploys SampleERC20coin", (done) => {
 			SampleERC20.new({
@@ -42,7 +71,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 			}).then(function(_instance) {
 				assert.ok(_instance.address);
 				homeToken = _instance;
-				done();
+				collectGasStats(_instance.transactionHash, 'deploys SampleERC20coin', done);
 			});
 		});
 
@@ -55,7 +84,12 @@ contract('SampleERC20/ERC777', (accounts) => {
 		});
 
 		it("deploys HomeERC20Bridge", (done) => {
-			HomeERC20Bridge.new({
+			let validatorpubkeys = validators.reduce((accumulator, currentValue) => {
+				accumulator.push(currentValue.public);
+				return accumulator;
+			}, []);
+			console.log(validatorpubkeys);
+			HomeERC20Bridge.new(3, validatorpubkeys, {
 				from: bridgeOwner
 			}).then(function(_instance) {
 				assert.ok(_instance.address);
@@ -64,13 +98,13 @@ contract('SampleERC20/ERC777', (accounts) => {
 			});
 		});
 
-		it("registers validators on HomeERC20Bridge", async () => {
-			for (let i = 0; i < validators.length; i++) {
-				await homeERC20Bridge.addValidator(validators[i].public, {
-					from: bridgeOwner
-				});
-			}
-		});
+		// it("registers validators on HomeERC20Bridge", async () => {
+		// 	for (let i = 0; i < validators.length; i++) {
+		// 		await homeERC20Bridge.addValidator(validators[i].public, {
+		// 			from: bridgeOwner
+		// 		});
+		// 	}
+		// });
 	});
 
 	// describe('Deposit test', () => {
@@ -106,7 +140,12 @@ contract('SampleERC20/ERC777', (accounts) => {
 		});
 
 		it("deploys ForeignERC777Bridge", (done) => {
-			ForeignERC777Bridge.new({
+			let validatorpubkeys = validators.reduce((accumulator, currentValue) => {
+				accumulator.push(currentValue.public);
+				return accumulator;
+			}, []);
+			console.log(validatorpubkeys);
+			ForeignERC777Bridge.new(3, validatorpubkeys, {
 				from: bridgeOwner
 			}).then(function(_instance) {
 				assert.ok(_instance.address);
@@ -115,29 +154,98 @@ contract('SampleERC20/ERC777', (accounts) => {
 			});
 		});
 
-		it("creates the hometoken on the foreign chain", async () => {
+		it("creates the Sidechain token", async () => {
 			const name = await homeToken.name();
 			const symbol = await homeToken.symbol();
 
-			await foreignERC777Bridge.registerToken(homeToken.address, name, symbol, {
+			sidechainToken = await erc777.new(name, symbol, 1, {
+				from: bridgeOwner,
+			});
+
+		});
+
+		it("registers the mapping from main->sidechain token", async () => {
+			await foreignERC777Bridge.registerToken(homeToken.address, sidechainToken.address, {
 				from: bridgeOwner,
 			});
 		});
 
+
 	});
 
-	describe('main -> foreign', () => {
-		it("sends 2 token units to the HomeBridge", async () => {
+	describe('Cross the bridge: main -> side', () => {
+
+		var mintingHash;
+
+		it("sends 2 token units to the HomeBridge", (done) => {
 			// Alice sends 
-			await homeToken.transfer(homeERC20Bridge.address, 2, {
+			homeToken.transfer(homeERC20Bridge.address, 2, {
 				from: alice
+			}).then(function(tx) {
+				//				console.log('HASHIESJ',tx.receipt.transactionHash);
+				mintingHash = tx.receipt.transactionHash;
+				done();
 			});
 
 			// now the validators catch the Transfer event , and mint the token on the
-			// foreign network
-			// 
+			// foreign network 
+		});
+
+		it("creates signatures", async () => {
+
+			const condensed = utility.pack(
+				[
+					mintingHash,
+					homeToken.address,
+					alice,
+					2
+				], [256, 256, 256, 256]);
+			const hash = sha256(new Buffer(condensed, 'hex'));
+			console.log('offchain hash',hash);
+
+			for (let i = 0; i < requiredValidators+1; i++) {
 
 
+				const sig = ethUtil.ecsign(
+					new Buffer(hash, 'hex'),
+					new Buffer(validators[i].private, 'hex'));
+				const r = `0x${sig.r.toString('hex')}`;
+				const s = `0x${sig.s.toString('hex')}`;
+				const v = sig.v;
+
+				console.log('sig', i + 1, r, s, v);
+				//console.log(foreignERC777Bridge);
+
+				let t = await foreignERC777Bridge.signMintRequest(mintingHash, homeToken.address, alice, 2, v, r, s);
+				console.log('txdata', t);
+
+				let balance = await sidechainToken.balanceOf(alice);
+				console.log('balance',balance.toString());
+				//console.log('count', await foreignERC777Bridge.mintRequests(hash));
+				//				_transactionHash,_mainToken,_recipient,_amount
+				//await
+			}
+
+
+		});
+		// it('validators mint new token'){
+
+		// 	// await foreignERC777Bridge.transfer(homeERC20Bridge.address, 2, {
+		// 	// 	from: alice
+		// 	// });
+
+		// }
+
+
+	});
+
+	describe('STATS TIME', () => {
+		it("dumps", (done) => {
+			let cumulative = 0;
+			gasStats.forEach(function(item) {
+				console.log(item.name, '=>', item.gasUsed, 'gas used');
+			})
+			done();
 		});
 	});
 
