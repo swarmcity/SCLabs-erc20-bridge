@@ -1,8 +1,11 @@
 const SampleERC20 = artifacts.require("./SampleERC20.sol");
 const HomeERC20Bridge = artifacts.require("./HomeERC20Bridge");
 const ForeignERC777Bridge = artifacts.require("./ForeignERC777Bridge.sol");
+const SidechainToken = artifacts.require("eip777/contracts/SidechainToken.sol");
+
 const EIP820 = require('eip820');
 const erc777 = artifacts.require("eip777/contracts/ReferenceToken.sol");
+
 const keythereum = require('keythereum');
 const ethUtil = require('ethereumjs-util');
 const utility = require('../utility.js')();
@@ -24,7 +27,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 
 	// Alice : the sender
 	let alice = accounts[3];
-	let aliceAmount = 2;
+	let aliceAmount = 10e18;
 
 	// SIDECHAIN
 	// the ForeignERC777Bridge contract
@@ -34,6 +37,9 @@ contract('SampleERC20/ERC777', (accounts) => {
 
 	// validator set
 	let validators = [];
+
+	// inverse test
+	let nonValidators = [];
 
 	gasStats = [];
 
@@ -64,6 +70,11 @@ contract('SampleERC20/ERC777', (accounts) => {
 			}
 		});
 
+		it('generate 2 invalid validator keys', () => {
+			for (let i = 0; i < 10; i++) {
+				nonValidators.push(mkkeypair());
+			}
+		});
 
 		it("deploys SampleERC20coin", (done) => {
 			SampleERC20.new({
@@ -158,13 +169,19 @@ contract('SampleERC20/ERC777', (accounts) => {
 			const name = await homeToken.name();
 			const symbol = await homeToken.symbol();
 
-			sidechainToken = await erc777.new(name, symbol, 1, {
+			sidechainToken = await SidechainToken.new(foreignERC777Bridge.address, name, symbol, 1, {
+				from: bridgeOwner,
+			});
+
+			// set the ownership of the token to the bridge - otherwise we cannot mint tokens.. :(
+			await sidechainToken.changeOwnership(foreignERC777Bridge.address, {
 				from: bridgeOwner,
 			});
 
 		});
 
 		it("registers the mapping from main->sidechain token", async () => {
+			console.log('added mapping', homeToken.address, '=>', sidechainToken.address);
 			await foreignERC777Bridge.registerToken(homeToken.address, sidechainToken.address, {
 				from: bridgeOwner,
 			});
@@ -177,9 +194,9 @@ contract('SampleERC20/ERC777', (accounts) => {
 
 		var mintingHash;
 
-		it("sends 2 token units to the HomeBridge", (done) => {
+		it("sends 1e18 token units to the HomeBridge", (done) => {
 			// Alice sends 
-			homeToken.transfer(homeERC20Bridge.address, 2, {
+			homeToken.transfer(homeERC20Bridge.address, 1e18, {
 				from: alice
 			}).then(function(tx) {
 				//				console.log('HASHIESJ',tx.receipt.transactionHash);
@@ -198,12 +215,12 @@ contract('SampleERC20/ERC777', (accounts) => {
 					mintingHash,
 					homeToken.address,
 					alice,
-					2
-				], [256, 256, 256, 256]);
+					1e18
+				], [256, 160, 160, 256]);
 			const hash = sha256(new Buffer(condensed, 'hex'));
-			console.log('offchain hash',hash);
+			console.log('offchain hash', hash);
 
-			for (let i = 0; i < requiredValidators+1; i++) {
+			for (let i = 0; i < requiredValidators + 1; i++) {
 
 
 				const sig = ethUtil.ecsign(
@@ -216,20 +233,16 @@ contract('SampleERC20/ERC777', (accounts) => {
 				console.log('sig', i + 1, r, s, v);
 				//console.log(foreignERC777Bridge);
 
-				let t = await foreignERC777Bridge.signMintRequest(mintingHash, homeToken.address, alice, 2, v, r, s);
-				console.log('txdata', t);
+				let t = await foreignERC777Bridge.signMintRequest(mintingHash, homeToken.address, alice, 1e18, v, r, s);
+				console.log('txdata', t.logs[0].args);
 
 				let balance = await sidechainToken.balanceOf(alice);
-				console.log('balance',balance.toString());
-				//console.log('count', await foreignERC777Bridge.mintRequests(hash));
-				//				_transactionHash,_mainToken,_recipient,_amount
-				//await
+				console.log('balance', balance.toString());
 			}
-
-
 		});
-		// it('validators mint new token'){
 
+
+		// it('validators mint new token'){
 		// 	// await foreignERC777Bridge.transfer(homeERC20Bridge.address, 2, {
 		// 	// 	from: alice
 		// 	// });

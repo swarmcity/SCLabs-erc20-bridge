@@ -4,7 +4,7 @@ import 'eip777/contracts/ITokenRecipient.sol';
 import 'eip777/contracts/ReferenceToken.sol';
 import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
 import './Validatable.sol';
-import './Bridgable.sol';
+import './Bridgeable.sol';
 
 contract ForeignERC777Bridge is Ownable, Validatable {
 
@@ -18,7 +18,7 @@ contract ForeignERC777Bridge is Ownable, Validatable {
 	mapping(address=>address) tokenMap;
 
 	event WithdrawRequest(address _to,uint256 _amount,bytes32 _withdrawhash);
-	event TokenAdded(address _homeAddress,address _sideAddress);
+	event TokenAdded(address _mainToken,address _sideToken);
 	event MintRequestSigned(bytes32 _mintRequestsHash, bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount,uint8 _requiredSignatures,uint8 _signatureCount);
 	event MintRequestExecuted(bytes32 _mintRequestsHash, bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount);
 
@@ -29,15 +29,15 @@ contract ForeignERC777Bridge is Ownable, Validatable {
 		tokenMap[0x0] = t;
 	}
 
-	function registerToken(address _homeAddress,address _sideAddress) public onlyOwner {
-		assert(tokenMap[_homeAddress] == 0);
-		tokenMap[_homeAddress] = _sideAddress;
-		TokenAdded(_homeAddress,_sideAddress);
+	function registerToken(address _mainToken,address _sideToken) public onlyOwner {
+		assert(tokenMap[_mainToken] == 0);
+		tokenMap[_mainToken] = _sideToken;
+		TokenAdded(_mainToken,_sideToken);
 	}
 
 	function signMintRequest(bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount,uint8 _v, bytes32 _r, bytes32 _s) public {
 		bytes32 mintRequestsHash = sha256(_transactionHash,_mainToken,_recipient,_amount);
-		//assert(isValidator(ecrecover(mintRequestsHash, _v, _r, _s)));
+		assert(isValidator(ecrecover(mintRequestsHash, _v, _r, _s)));
 		if (mintRequests[mintRequestsHash] < requiredValidators){
 			mintRequests[mintRequestsHash]++;
 			MintRequestSigned(mintRequestsHash,_transactionHash, _mainToken,  _recipient, _amount,requiredValidators,mintRequests[mintRequestsHash]);
@@ -45,14 +45,9 @@ contract ForeignERC777Bridge is Ownable, Validatable {
 			assert(mintRequestsDone[mintRequestsHash] != true);
 			assert(tokenMap[_mainToken] != 0x0);
 			mintRequestsDone[mintRequestsHash] = true;
-			MintRequestExecuted(mintRequestsHash,_transactionHash, _mainToken,  _recipient, _amount);
-			//Bridgable(tokenMap[_mainToken]).mintFromBridge(_recipient,_amount,'');
+			MintRequestExecuted(mintRequestsHash,_transactionHash, tokenMap[_mainToken],  _recipient, _amount);
+			Bridgeable(tokenMap[_mainToken]).mintFromBridge(_recipient,_amount,'');
 		}
 	}
-
-
-	// function withDrawRequest(address _token,address _recipient,uint256 _amount) public onlyOwner {
-	// assert(!withdrawRequests[_id]);
-	// }
 }
 
