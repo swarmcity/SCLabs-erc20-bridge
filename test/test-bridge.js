@@ -11,9 +11,7 @@ const ethUtil = require('ethereumjs-util');
 const utility = require('../utility.js')();
 const sha256 = require('js-sha256').sha256;
 
-
 contract('SampleERC20/ERC777', (accounts) => {
-
 	// HOMECHAIN
 	// the ERC20 token on the home chain
 	let homeToken;
@@ -64,16 +62,9 @@ contract('SampleERC20/ERC777', (accounts) => {
 	}
 
 	describe('HomeChain setup', () => {
-
 		it('generate 10 validator keys', () => {
 			for (let i = 0; i < 10; i++) {
 				validators.push(mkkeypair());
-			}
-		});
-
-		it('generate 2 invalid validator keys', () => {
-			for (let i = 0; i < 10; i++) {
-				nonValidators.push(mkkeypair());
 			}
 		});
 
@@ -111,7 +102,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 	});
 
 	describe('ForeignChain setup', () => {
-
 		it("deploys the EIP820 registry", async () => {
 			await web3.eth.sendTransaction({
 				from: bridgeOwner,
@@ -148,7 +138,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 			await sidechainToken.changeOwnership(foreignERC777Bridge.address, {
 				from: bridgeOwner,
 			});
-
 		});
 
 		it("registers the mapping from main->sidechain token", async () => {
@@ -157,8 +146,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 				from: bridgeOwner,
 			});
 		});
-
-
 	});
 
 	describe('Cross the bridge: main -> side', () => {
@@ -173,9 +160,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 				mintingHash = tx.receipt.transactionHash;
 				collectGasStats(mintingHash, 'mainchain', 'send tokens to main-bridge', done);
 			});
-
-			// now the validators catch the Transfer event , and mint the token on the
-			// foreign network 
 		});
 
 		it("checks if bridge received the tokens", async () => {
@@ -184,8 +168,10 @@ contract('SampleERC20/ERC777', (accounts) => {
 			assert.equal(homeBridgeBalance.toNumber(), 1e18);
 		});
 
+		// now the validators should catch the Transfer event and sign approvals
+		// to mint tokens on the side chain
+		// the last one to sign automatically mints the tokens.
 		it("sign & mint token on sidechain", async () => {
-
 			const condensed = utility.pack(
 				[
 					mintingHash,
@@ -204,10 +190,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 				const s = `0x${sig.s.toString('hex')}`;
 				const v = sig.v;
 
-				//console.log('sig', i + 1, r, s, v);
-
 				let t = await foreignERC777Bridge.signMintRequest(mintingHash, homeToken.address, alice, 1e18, v, r, s);
-				//console.log('txdata', t.logs[0].args);
 			}
 		});
 
@@ -231,19 +214,16 @@ contract('SampleERC20/ERC777', (accounts) => {
 				withdrawHash = tx.receipt.transactionHash;
 				collectGasStats(withdrawHash, 'side2main', 'send tokens to sidebridge', done);
 			});
-
-			// now the validators catch the Transfer event , and create the witdraw hashes on the token on the
-			// foreign network
 		});
 
 
-		it("create token withdrawal signatures", async () => {
+		// now the validators catch the Transfer event , and create the witdraw signatures
+		// on the token on the side chain
 
+		it("create token withdrawal signatures", async () => {
 			// Validators need to look-up the homeTokenaddress from the 
 			// sidechain bridge - which they can do from the token mapping 
-
-			// Then they can create their signatures
-
+			// and then they can create their signature
 			const condensed = utility.pack(
 				[
 					homeToken.address,
@@ -254,7 +234,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 			const hash = sha256(new Buffer(condensed, 'hex'));
 
 			for (let i = 0; i < requiredValidators + 1; i++) {
-
 				const sig = ethUtil.ecsign(
 					new Buffer(hash, 'hex'),
 					new Buffer(validators[i].private, 'hex'));
@@ -262,13 +241,14 @@ contract('SampleERC20/ERC777', (accounts) => {
 				const s = `0x${sig.s.toString('hex')}`;
 				const v = sig.v;
 
+				// announce validator's signature through the sidechain bridge
 				let t = await foreignERC777Bridge.signWithdrawRequest(withdrawHash, homeToken.address, alice, 1e18, 0, v, r, s);
-//				console.log('txdata', t.logs[0].args);
+
 				collectedSignatures.push(t.logs[0].args);
 			}
 		});
 
-		it("signs takes collected signatures to withdraw tokens on mainchain", async () => {
+		it("takes collected signatures to execute withdraw on main bridge", async () => {
 			let _vs = [];
 			let _rs = [];
 			let _ss = [];
@@ -288,7 +268,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 				_ss);
 
 			collectGasStats(t.tx, 'mainchain', 'withdraw on mainbridge');
-
 		});
 
 		it("checks if bridge does not have the tokens anymore", async () => {
@@ -296,7 +275,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 			let homeBridgeBalance = await homeToken.balanceOf(homeERC20Bridge.address);
 			assert.equal(homeBridgeBalance.toNumber(), 0);
 		});
-
 	});
 
 	describe('STATS TIME', () => {
@@ -323,6 +301,4 @@ contract('SampleERC20/ERC777', (accounts) => {
 			done();
 		});
 	});
-
-
 });
