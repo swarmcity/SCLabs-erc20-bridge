@@ -222,7 +222,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 
 			for (let i = 0; i < requiredValidators + 1; i++) {
 
-
 				const sig = ethUtil.ecsign(
 					new Buffer(hash, 'hex'),
 					new Buffer(validators[i].private, 'hex'));
@@ -231,8 +230,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 				const v = sig.v;
 
 				console.log('sig', i + 1, r, s, v);
-				//console.log(foreignERC777Bridge);
-
+				
 				let t = await foreignERC777Bridge.signMintRequest(mintingHash, homeToken.address, alice, 1e18, v, r, s);
 				console.log('txdata', t.logs[0].args);
 
