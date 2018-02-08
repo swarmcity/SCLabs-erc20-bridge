@@ -34,14 +34,14 @@ contract HomeERC20Bridge is Validatable {
         assert(_withdrawblock <= block.number);		
 
 		// verify the provided signatures
-		// uint8 approvals = 0;
-  //       for (uint i = 0; i < _v.length; i++) {
-  //       	assert(isValidator(ecrecover(hash, _v[i], _r[i], _s[i])));
-  //       	approvals++;
-  //       }
+		uint8 approvals = 0;
+        for (uint i = 0; i < _v.length; i++) {
+        	assert(isValidator(ecrecover(hash, _v[i], _r[i], _s[i])));
+        	approvals++;
+        }
 
-		// // verify if the threshold of valid signatures is met
-  //       assert(approvals >= requiredValidators);
+		// verify if the threshold of required signatures is met
+         assert(approvals >= requiredValidators);
 
 		// all OK. mark hash as used & Transfer tokens
 		usedHashes[hash] = true;
