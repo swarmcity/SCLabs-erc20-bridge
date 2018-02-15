@@ -2,9 +2,12 @@ pragma solidity ^0.4.18;
 
 import 'zeppelin-solidity/contracts/token/ERC20/ERC20Basic.sol';
 import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
+import 'zeppelin-solidity/contracts/math/SafeMath.sol';
+
 import './Validatable.sol';
 
 contract HomeERC20Bridge is Validatable {
+	using SafeMath for uint256;
 
 	mapping(bytes32=>bool) usedHashes;
 	
@@ -21,7 +24,7 @@ contract HomeERC20Bridge is Validatable {
 
 	event EmitHash(bytes32 _hash);
 
-	function withdraw(address _token, address _recipient, uint _amount,uint256 _withdrawblock,uint8[] _v, bytes32[] _r, bytes32[] _s,uint256 _reward,uint8 _vReward,bytes32 _rReward,bytes32 _sReward) public{
+	function withdraw(address _token, address _recipient, uint256 _amount,uint256 _withdrawblock,uint256 _reward,uint8 _vReward,bytes32 _rReward,bytes32 _sReward,uint8[] _v, bytes32[] _r, bytes32[] _s) public{
 
 		bytes32 hash = sha256(_token,_recipient,_amount,_withdrawblock);
 
@@ -50,7 +53,8 @@ contract HomeERC20Bridge is Validatable {
 
 		// all OK. mark hash as used & Transfer tokens
 		usedHashes[hash] = true;
-		//assert(ERC20Basic(_token).transfer(_recipient,_amount-_reward));
+		//uint256 netAmount = _amount.sub(_reward);
+		//assert(ERC20Basic(_token).transfer(_recipient,netAmount));
 		assert(ERC20Basic(_token).transfer(msg.sender,_reward));
 		
 	}	
