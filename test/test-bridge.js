@@ -76,7 +76,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 			done();
 		});
 
-		it('send some gas to Alice ' , async () => {
+		it('send some gas to Alice ', async () => {
 			await web3.eth.sendTransaction({
 				from: accounts[0],
 				to: alicePublic,
@@ -84,7 +84,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 			});
 		});
 
-		it('checks balance of Alice ' , async () => {
+		it('checks balance of Alice ', async () => {
 			assert.ok(web3.eth.getBalance(alicePublic).toNumber());
 		});
 
@@ -175,7 +175,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 		it("sends 1e18 token units to the HomeBridge", (done) => {
 
 			let data = homeToken.contract.transfer.getData(homeERC20Bridge.address, 1e18);
-			
+
 			const privateKey = Buffer.from(alicePrivate, 'hex');
 
 			const txParams = {
@@ -195,7 +195,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 				mintingHash = tx;
 				console.log(err, tx);
 				done();
-			})
+			});
 		});
 
 		it("checks if bridge received the tokens", async () => {
@@ -242,6 +242,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 
 		var withdrawHash;
 		var collectedSignatures = [];
+		var rewardSignature;
 
 		it("sends 1e18 token units to the SideBridge", (done) => {
 			// // Alice sends 
@@ -254,7 +255,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 
 
 			let data = homeToken.contract.transfer.getData(foreignERC777Bridge.address, 1e18);
-			
+
 			const privateKey = Buffer.from(alicePrivate, 'hex');
 
 			const txParams = {
@@ -270,10 +271,10 @@ contract('SampleERC20/ERC777', (accounts) => {
 			const serializedTx = tx.serialize();
 
 			web3.eth.sendRawTransaction(serializedTx, function(err, tx) {
-//				assert.isNull(err);
-//				assert.ok(tx);
+				//				assert.isNull(err);
+				//				assert.ok(tx);
 				withdrawHash = tx;
-//				collectGasStats(withdrawHash, 'side2main', 'send tokens to sidebridge', done);
+				//				collectGasStats(withdrawHash, 'side2main', 'send tokens to sidebridge', done);
 
 				done();
 			})
@@ -284,7 +285,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 		// now the validators catch the Transfer event , and create the witdraw signatures
 		// on the token on the side chain
 
-		it("create token withdrawal signatures", async () => {
+		it("create token withdrawal validator signatures", async () => {
 			// Validators need to look-up the homeTokenaddress from the 
 			// sidechain bridge - which they can do from the token mapping 
 			// and then they can create their signature
@@ -312,10 +313,63 @@ contract('SampleERC20/ERC777', (accounts) => {
 			}
 		});
 
-		it("recepient of tokens signes off on a reward to withdraw on the main bridge", async () => {
+		it("recepient of tokens signes off on a reward to withdraw on the main bridge", (done) => {
+
+			let condensed;
+			condensed = utility.pack(
+				[
+					homeToken.address,
+					alicePublic,
+					1e18,
+					0
+				], [160, 160, 256, 256]);
+			const withdrawRequestsHash = sha256(new Buffer(condensed, 'hex'));
 
 
-			// _token,_recipient,_amount,_withdrawblock,_reward
+			condensed = utility.pack(
+				[
+					homeToken.address,
+					alicePublic,
+					1e18,
+					0,
+					1
+				], [160, 160, 256, 256, 256]);
+			const rewardHash = sha256(new Buffer(condensed, 'hex'));
+
+			const sig = ethUtil.ecsign(
+				new Buffer(rewardHash, 'hex'),
+				new Buffer(alicePrivate, 'hex'));
+			const r = `0x${sig.r.toString('hex')}`;
+			const s = `0x${sig.s.toString('hex')}`;
+			const v = sig.v;
+
+			// we'll need this later..
+			rewardSignature = {
+				r: r,
+				s: s,
+				v: v,
+			}
+
+			let data = foreignERC777Bridge.contract.signWithdrawRequestReward.getData(withdrawRequestsHash, 1, v, r, s);
+
+			const txParams = {
+				nonce: '0x02',
+				gasPrice: 20e9,
+				gasLimit: 1e6,
+				to: foreignERC777Bridge.address,
+				data: data
+			};
+
+			const tx = new EthereumTx(txParams);
+			tx.sign(Buffer.from(alicePrivate, 'hex'));
+			const serializedTx = tx.serialize();
+
+			web3.eth.sendRawTransaction(serializedTx, function(err, tx) {
+				console.log(err, tx);
+				assert.ok(tx);
+				done();
+			})
+
 
 
 		});
@@ -330,11 +384,17 @@ contract('SampleERC20/ERC777', (accounts) => {
 				_rs.push(collectedSignatures[i]._r);
 				_ss.push(collectedSignatures[i]._s);
 			}
+			// add the reward signature
+			_vs.push(rewardSignature.v);
+			_rs.push(rewardSignature.r);
+			_ss.push(rewardSignature.s);
 
-			let t = await homeERC20Bridge.withdraw(collectedSignatures[0]._mainToken,
+			let t = await homeERC20Bridge.withdraw(
+				collectedSignatures[0]._mainToken,
 				collectedSignatures[0]._recipient,
 				collectedSignatures[0]._amount,
 				0,
+				1,
 				_vs,
 				_rs,
 				_ss);

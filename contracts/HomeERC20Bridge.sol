@@ -18,46 +18,84 @@ contract HomeERC20Bridge is Validatable {
 	}
 
 	// ETH deposit
-	function() payable {
+	function() public payable {
 		BridgeETH(msg.sender,msg.value);
 	}
 
 	event EmitHash(bytes32 _hash);
 
-	function withdraw(address _token, address _recipient, uint256 _amount,uint256 _withdrawblock,uint256 _reward,uint8 _vReward,bytes32 _rReward,bytes32 _sReward,uint8[] _v, bytes32[] _r, bytes32[] _s) public{
+	function checkValidations(
+		bytes32 _hash,
+		uint256 _length,
+		uint8[] _v,
+		bytes32[] _r,
+		bytes32[] _s) public view returns(uint8){
+		//mapping(address=>bool) seenValidators;
+		uint8 approvals = 0;
+        for (uint i = 0; i < _length ; i++) {
+        	address validator = ecrecover(_hash, _v[i], _r[i], _s[i]);
+        	//assert(seenValidators[validator] == false);
+        	assert(isValidator(validator));
+        	//seenValidators[validator]=true;
+        	approvals++;
+        }
+        return approvals;
+	}
+
+	function withdraw(
+		address _token,
+		address _recipient,
+		uint256 _amount,
+		uint256 _withdrawblock,
+		uint256 _reward,
+		uint8[] _v,
+		bytes32[] _r,
+		bytes32[] _s) public{
 
 		bytes32 hash = sha256(_token,_recipient,_amount,_withdrawblock);
 
-		EmitHash(hash);
-
 		// the hash should not have been used before
 		assert(usedHashes[hash] == false);
+
+		// mark hash as used
+		usedHashes[hash] = true;
 
 		// the time-lock should have passed
         assert(_withdrawblock <= block.number);		
 
 		// verify the provided signatures
-		uint8 approvals = 0;
-        for (uint i = 0; i < _v.length; i++) {
-        	assert(isValidator(ecrecover(hash, _v[i], _r[i], _s[i])));
-        	approvals++;
+		assert(_v.length > 0);
+
+        if (_reward > 0) {
+	        assert(_reward < _amount);
+			// verify if the threshold of required signatures is met
+    	    assert(checkValidations(hash,_v.length-1,_v,_r,_s) >= requiredValidators);
+		    // check if the reward has been signed off by the receiver ( last signature ) ...
+    		bytes32 rewardHash = sha256(_token,_recipient,_amount,_withdrawblock,_reward);
+    		assert(ecrecover(rewardHash, _v[_v.length-1], _r[_v.length-1], _s[_v.length-1]) == _recipient);
+			// all OK. mark hash as used & Transfer tokens + reward
+			if (_token == 0x0){
+				// ETH transfer
+				_recipient.transfer(_amount.sub(_reward));
+				msg.sender.transfer(_reward);
+			}else{
+				// ERC-20 transfer
+				assert(ERC20Basic(_token).transfer(_recipient,_amount.sub(_reward)));
+				assert(ERC20Basic(_token).transfer(msg.sender,_reward));
+			}		
+        }else{
+			// verify if the threshold of required signatures is met
+    	    assert(checkValidations(hash,_v.length,_v,_r,_s) >= requiredValidators);
+			if (_token == 0x0){
+				// ETH transfer
+				_recipient.transfer(_amount);
+			}else{
+				// ERC-20 transfer
+				assert(ERC20Basic(_token).transfer(_recipient,_amount));
+			}
         }
-
-		// verify if the threshold of required signatures is met
-        assert(approvals >= requiredValidators);
-
-        // check if the reward has been signed off by the receiver...
-        bytes32 rewardHash = sha256(_token,_recipient,_amount,_withdrawblock,_reward);
-        assert(ecrecover(rewardHash, _vReward, _rReward, _sReward) == _recipient);
-        assert(_reward < _amount);
-
-		// all OK. mark hash as used & Transfer tokens
-		usedHashes[hash] = true;
-		//uint256 netAmount = _amount.sub(_reward);
-		//assert(ERC20Basic(_token).transfer(_recipient,netAmount));
-		assert(ERC20Basic(_token).transfer(msg.sender,_reward));
-		
 	}	
+
 
 }
 
