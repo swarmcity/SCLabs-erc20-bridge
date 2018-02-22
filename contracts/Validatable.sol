@@ -17,7 +17,7 @@ contract Validatable is Ownable {
 		require(_initialValidators.length >= _requiredValidators);
 		setRequiredValidators(_requiredValidators);
         	for (uint i = 0; i < _initialValidators.length; i++) {
-	        	require(!isValidator[_initialValidators[i]] && _initialValidators[i] != address(0));
+	        	require(!isValidator(_initialValidators[i]) && _initialValidators[i] != address(0));
 	        	addValidator(_initialValidators[i]);
 	        }
 		validatorCount = _initialValidators.length;
