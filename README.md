@@ -46,5 +46,5 @@ If you don't want to install this plugin , just check the issues on the project
 
 # Get in touch
 
-- ScalingNOW! chat on Riot: https://www.youtube.com/redirect?q=https%3A%2F%2Friot.im%2Fapp%2F%23%2Froom%2F%23ScalingEthereum%3Amatrix.org&v=cUKXqzralmc&redir_token=9bWdwBCrN7SteCs2ywCsdzQQNup8MTUxOTM4MDU5NEAxNTE5Mjk0MTk0&event=video_description
+- ScalingNOW! chat on Riot: https://riot.im/app/#/room/#ScalingEthereum:matrix.org
 
