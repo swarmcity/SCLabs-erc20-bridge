@@ -71,8 +71,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 
 			alicePublic = validators[9].public;
 			alicePrivate = validators[9].private;
-			//console.log('alicePublic',alicePublic);
-			//console.log('alicePrivate',alicePrivate);
 			done();
 		});
 
@@ -193,8 +191,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 			web3.eth.sendRawTransaction(serializedTx, function(err, tx) {
 				assert.ok(tx);
 				mintingHash = tx;
-				console.log(err, tx);
-				done();
+				collectGasStats(tx, 'mainchain', 'deposit ERC20 tokens to bridge', done);
 			});
 		});
 
@@ -245,15 +242,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 		var rewardSignature;
 
 		it("sends 1e18 token units to the SideBridge", (done) => {
-			// // Alice sends 
-			// homeToken.transfer(foreignERC777Bridge.address, 1e18, {
-			// 	from: alicePublic
-			// }).then(function(tx) {
-			// 	withdrawHash = tx.receipt.transactionHash;
-			// 	collectGasStats(withdrawHash, 'side2main', 'send tokens to sidebridge', done);
-			// });
-
-
 			let data = homeToken.contract.transfer.getData(foreignERC777Bridge.address, 1e18);
 
 			const privateKey = Buffer.from(alicePrivate, 'hex');
@@ -271,11 +259,9 @@ contract('SampleERC20/ERC777', (accounts) => {
 			const serializedTx = tx.serialize();
 
 			web3.eth.sendRawTransaction(serializedTx, function(err, tx) {
-				//				assert.isNull(err);
-				//				assert.ok(tx);
+				assert.isNull(err);
+				assert.ok(tx);
 				withdrawHash = tx;
-				//				collectGasStats(withdrawHash, 'side2main', 'send tokens to sidebridge', done);
-
 				done();
 			})
 
@@ -365,7 +351,6 @@ contract('SampleERC20/ERC777', (accounts) => {
 			const serializedTx = tx.serialize();
 
 			web3.eth.sendRawTransaction(serializedTx, function(err, tx) {
-				console.log(err, tx);
 				assert.ok(tx);
 				done();
 			})
@@ -399,7 +384,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 				_rs,
 				_ss);
 
-			collectGasStats(t.tx, 'mainchain', 'withdraw on mainbridge');
+			await collectGasStats(t.tx, 'mainchain', 'withdraw ERC20 tokens from bridge');
 		});
 
 		it("checks if bridge does not have the tokens anymore", async () => {

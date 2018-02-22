@@ -15,12 +15,12 @@ contract Validatable is Ownable {
 	function Validatable(uint8 _requiredValidators,address[] _initialValidators) public {
 		require(_requiredValidators != 0);
 		require(_initialValidators.length >= _requiredValidators);
-		setRequiredValidators(_requiredValidators);
-        	for (uint i = 0; i < _initialValidators.length; i++) {
+		for (uint i = 0; i < _initialValidators.length; i++) {
 	        	require(!isValidator(_initialValidators[i]) && _initialValidators[i] != address(0));
 	        	addValidator(_initialValidators[i]);
-	        }
-		validatorCount = _initialValidators.length;
+	    }
+		setRequiredValidators(_requiredValidators);
+        validatorCount = _initialValidators.length;
 	}
 
 	function addValidator(address _validator)  public onlyOwner {

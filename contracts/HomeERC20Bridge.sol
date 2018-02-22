@@ -30,13 +30,10 @@ contract HomeERC20Bridge is Validatable {
 		uint8[] _v,
 		bytes32[] _r,
 		bytes32[] _s) public view returns(uint8){
-		//mapping(address=>bool) seenValidators;
 		uint8 approvals = 0;
         for (uint i = 0; i < _length ; i++) {
         	address validator = ecrecover(_hash, _v[i], _r[i], _s[i]);
-        	//assert(seenValidators[validator] == false);
         	assert(isValidator(validator));
-        	//seenValidators[validator]=true;
         	approvals++;
         }
         return approvals;
