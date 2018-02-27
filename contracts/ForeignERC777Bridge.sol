@@ -17,6 +17,8 @@ contract ForeignERC777Bridge is Ownable, Validatable {
 	// maps home token addresses -> foreign token addresses
 	mapping(address=>address) tokenMap;
 
+	mapping(bytes32=>bool) txs_signed;
+
 	event WithdrawRequest(address _to,uint256 _amount,bytes32 _withdrawhash);
 	event TokenAdded(address _mainToken,address _sideToken);
 	event MintRequestSigned(bytes32 _mintRequestsHash, bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount,uint8 _requiredSignatures,uint8 _signatureCount);
@@ -39,6 +41,8 @@ contract ForeignERC777Bridge is Ownable, Validatable {
 
 	function signMintRequest(bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount,uint8 _v, bytes32 _r, bytes32 _s) public {
 		bytes32 mintRequestsHash = sha256(_transactionHash,_mainToken,_recipient,_amount);
+		bytes32 hash_sender = keccak256(msg.sender, mintRequestsHash);
+		txs_signed[hash_sender] = true;
 		assert(isValidator(ecrecover(mintRequestsHash, _v, _r, _s)));
 		if (mintRequests[mintRequestsHash] < requiredValidators){
 			mintRequests[mintRequestsHash]++;
@@ -54,6 +58,9 @@ contract ForeignERC777Bridge is Ownable, Validatable {
 
 	function signWithdrawRequest(bytes32 _transactionHash,address _mainToken, address _recipient,uint256 _amount,uint256 _withdrawBlock,uint8 _v, bytes32 _r, bytes32 _s) public {
 		bytes32 withdrawRequestsHash = sha256(_mainToken,_recipient,_amount,_withdrawBlock);
+		bytes32 hash_sender = keccak256(msg.sender, withdrawRequestsHash);
+        require(!deposits_signed[hash_sender]);
+		txs_signed[hash_sender] = true;
 		address validator = ecrecover(withdrawRequestsHash, _v, _r, _s);
 		assert(isValidator(validator));		
 		WithdrawRequestSigned(withdrawRequestsHash,_transactionHash, _mainToken,  _recipient, _amount,_withdrawBlock,validator,_v,_r,_s);
