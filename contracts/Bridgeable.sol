@@ -6,7 +6,7 @@ contract Bridgeable {
 
 	function mintFromBridge(address _to,uint256 _amount,bytes _operatorData) public;
 
-	function Bridgeable(address _bridgeAddress){
+	function Bridgeable(address _bridgeAddress) public {
 		bridgeAddress = _bridgeAddress;
 	}
 

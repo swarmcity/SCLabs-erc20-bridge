@@ -1,6 +1,5 @@
 pragma solidity ^0.4.18;
 
-import 'eip777/contracts/ITokenRecipient.sol';
 import 'eip777/contracts/ReferenceToken.sol';
 import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
 import './Validatable.sol';
@@ -61,7 +60,7 @@ contract ForeignERC777Bridge is Ownable, Validatable {
 		WithdrawRequestSigned(withdrawRequestsHash,_transactionHash, _mainToken,  _recipient, _amount,_withdrawBlock,validator,_v,_r,_s);
 	}
 
-	function signWithdrawRequestReward(bytes32 _withdrawRequestsHash,uint _reward,uint8 _v, bytes32 _r, bytes32 _s){
+	function signWithdrawRequestReward(bytes32 _withdrawRequestsHash,uint _reward,uint8 _v, bytes32 _r, bytes32 _s) public {
 		WithdrawRequestRewardSigned(_withdrawRequestsHash,_reward,_v,_r,_s);
 	}
 

@@ -13,15 +13,15 @@
   "license": "MIT",
   "dependencies": {
     "bignumber.js": "^6.0.0",
-    "eip777": "git+https://github.com/jacquesd/eip777.git",
-    "eip820": "0.0.17",
+    "eip777": "^0.0.3",
+    "eip820": "^0.0.20",
     "ethereumjs-tx": "^1.3.3",
     "ethereumjs-util": "^5.1.3",
     "ganache-cli": "^6.0.3",
     "js-sha256": "^0.9.0",
     "keythereum": "^1.0.2",
     "truffle": "^4.0.4",
-    "truffle-flattener": "^1.2.0",
+    "truffle-flattener": "^1.2.3",
     "zeppelin-solidity": "^1.5.0"
   }
 }

@@ -299,7 +299,7 @@ contract('SampleERC20/ERC777', (accounts) => {
 			}
 		});
 
-		it("recepient of tokens signes off on a reward to withdraw on the main bridge", (done) => {
+		it("recepient of tokens signs off on a reward to withdraw on the main bridge", (done) => {
 
 			let condensed;
 			condensed = utility.pack(
